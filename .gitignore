@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+*.pyo
+sessions.db
+*.db
+.env
+node_modules/
