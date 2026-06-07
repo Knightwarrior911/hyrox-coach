@@ -198,6 +198,54 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);-webkit-font
 .conn-status{font-size:12px;color:var(--text-secondary);display:flex;align-items:center;gap:8px}
 .conn-status .dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
 .conn-status .dot.connected{background:var(--z1)}
+
+.summary-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);animation:fadeIn 0.4s ease}
+.summary-overlay.hidden{display:none!important}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.summary-modal{background:var(--bg);border:1px solid var(--border);border-radius:20px;max-width:420px;width:100%;max-height:90dvh;overflow-y:auto;-webkit-overflow-scrolling:touch;position:relative;animation:slideUp 0.4s cubic-bezier(0.4,0,0.2,1)}
+.summary-modal::-webkit-scrollbar{width:3px}
+.summary-modal::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+@keyframes slideUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
+.summary-close{position:absolute;top:12px;right:12px;width:32px;height:32px;border-radius:50%;background:var(--surface-2);border:1px solid var(--border);color:var(--text-secondary);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:10;transition:all var(--transition)}
+.summary-close:active{transform:scale(0.9);background:var(--surface-3)}
+.summary-header{text-align:center;padding:28px 20px 16px;position:relative;overflow:hidden}
+.summary-header::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:20px 20px 0 0}
+.summary-grade{width:90px;height:90px;margin:0 auto 12px;position:relative}
+.summary-grade svg{width:100%;height:100%;transform:rotate(-90deg)}
+.summary-grade circle{fill:none;stroke-width:6;stroke-linecap:round}
+.summary-grade .bg{stroke:var(--surface-3)}
+.summary-grade .fill{transition:stroke-dashoffset 1.2s cubic-bezier(0.4,0,0.2,1)}
+.summary-grade .grade-letter{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:32px;font-weight:900}
+.summary-grade-label{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin-top:4px}
+.summary-date{font-size:10px;color:var(--muted);margin-top:4px}
+.summary-section{padding:0 16px;margin-bottom:12px}
+.summary-section-title{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:8px;font-weight:700}
+.summary-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
+.summary-stat{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px;text-align:center}
+.summary-stat .val{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1}
+.summary-stat .lbl{font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:3px;font-weight:600}
+.summary-stat.highlight{border-color:var(--accent);background:var(--accent-soft)}
+.summary-stat.full{grid-column:1/-1}
+
+.summary-zones{margin:8px 0}
+.summary-zone-row{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+.summary-zone-label{width:24px;font-size:10px;font-weight:700;color:var(--muted)}
+.summary-zone-track{flex:1;height:16px;background:var(--surface-2);border-radius:4px;overflow:hidden}
+.summary-zone-fill{height:100%;border-radius:4px;transition:width 0.8s cubic-bezier(0.4,0,0.2,1);position:relative}
+.summary-zone-fill::after{content:attr(data-pct);position:absolute;right:6px;top:50%;transform:translateY(-50%);font-size:8px;font-weight:700;color:rgba(0,0,0,0.7)}
+.summary-zone-time{width:36px;text-align:right;font-size:10px;color:var(--text-secondary);font-variant-numeric:tabular-nums;font-weight:600}
+
+.summary-insights{list-style:none;padding:0;margin:8px 0}
+.summary-insights li{font-size:12px;color:var(--text-secondary);line-height:1.6;padding:6px 0 6px 16px;position:relative;border-bottom:1px solid var(--border)}
+.summary-insights li:last-child{border-bottom:none}
+.summary-insights li::before{content:'';position:absolute;left:0;top:12px;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+
+.summary-recovery{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;text-align:center}
+.summary-recovery .hours{font-size:36px;font-weight:900;color:var(--accent)}
+.summary-recovery .label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin-top:2px}
+
+.summary-dismiss{width:100%;padding:14px;border:none;border-radius:12px;background:var(--accent);color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--font);text-transform:uppercase;letter-spacing:0.5px;margin-top:8px;transition:all var(--transition)}
+.summary-dismiss:active{transform:scale(0.97);opacity:0.9}
 </style>
 </head>
 <body>
@@ -374,6 +422,42 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);-webkit-font
     <button class="btn btn-danger hidden" id="btnStop" onclick="stopSession()">Stop</button>
     <button class="btn btn-secondary" id="btnConnect" onclick="reconnect()">Reconnect</button>
   </div>
+  <div class="summary-overlay hidden" id="summaryOverlay" onclick="if(event.target===this)closeSummary()">
+    <div class="summary-modal" id="summaryModal">
+      <button class="summary-close" onclick="closeSummary()">X</button>
+      <div class="summary-header" id="summaryHeader">
+        <div class="summary-grade">
+          <svg viewBox="0 0 100 100"><circle class="bg" cx="50" cy="50" r="42"/><circle class="fill" id="summaryGradeFill" cx="50" cy="50" r="42" stroke="var(--accent)" stroke-dasharray="263.9" stroke-dashoffset="263.9"/></svg>
+          <div class="grade-letter" id="summaryGradeLetter">--</div>
+        </div>
+        <div class="summary-grade-label" id="summaryGradeLabel" style="color:var(--accent)">--</div>
+        <div class="summary-date" id="summaryDate"></div>
+      </div>
+      <div class="summary-section">
+        <div class="summary-section-title">Session Stats</div>
+        <div class="summary-stats" id="summaryStats"></div>
+      </div>
+      <div class="summary-section">
+        <div class="summary-section-title">Zone Breakdown</div>
+        <div class="summary-zones" id="summaryZones"></div>
+      </div>
+      <div class="summary-section">
+        <div class="summary-section-title">Heart Rate Variability</div>
+        <div class="summary-stats" id="summaryHRV"></div>
+      </div>
+      <div class="summary-section">
+        <div class="summary-section-title">Insights</div>
+        <ul class="summary-insights" id="summaryInsights"></ul>
+      </div>
+      <div class="summary-section">
+        <div class="summary-section-title">Recovery</div>
+        <div class="summary-recovery" id="summaryRecovery"></div>
+      </div>
+      <div class="summary-section">
+        <button class="summary-dismiss" onclick="closeSummary()">Done</button>
+      </div>
+    </div>
+  </div>
 </div>
 <script>
 let ws=null,bleConnected=false,sessionActive=false;
@@ -394,7 +478,7 @@ function hideAudioIndicator(){const el=document.getElementById('audioIndicator')
 
 function connectWS(){const p=location.protocol==='https:'?'wss':'ws';ws=new WebSocket(`${p}://${location.host}/ws`);ws.onopen=()=>updateConnUI();ws.onclose=()=>{updateConnUI();setTimeout(connectWS,3000)};ws.onerror=()=>{};ws.onmessage=handleMessage}
 
-function handleMessage(e){try{const m=JSON.parse(e.data);switch(m.type){case 'hr':handleHR(m);break;case 'coaching':handleCoaching(m);break;case 'tts':handleTTS(m);break;case 'init':handleInit(m);break;case 'sessions':renderHistory(m.sessions);break;case 'session_started':sessionStarted();break;case 'session_stopped':sessionStopped(m.sessions);break;case 'device_info':handleDeviceInfo(m);break;}}catch(err){console.error(err)}}
+function handleMessage(e){try{const m=JSON.parse(e.data);switch(m.type){case 'hr':handleHR(m);break;case 'coaching':handleCoaching(m);break;case 'tts':handleTTS(m);break;case 'init':handleInit(m);break;case 'sessions':renderHistory(m.sessions);break;case 'session_started':sessionStarted();break;case 'session_stopped':sessionStopped(m);break;case 'device_info':handleDeviceInfo(m);break;}}catch(err){console.error(err)}}
 
 function handleHR(msg){
   const d=msg.data;
@@ -504,7 +588,93 @@ function drawZoneBars(){const c=document.getElementById('zoneBarsContent');const
 function startSession(){unlockAudio();if(ws&&ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type:'start_session',sport:document.getElementById('settingSport').value}))}
 function sessionStarted(){sessionActive=true;sessionStartTime=Date.now();hrData=[];rrData=[];hrvData=[];zoneData={Z1:0,Z2:0,Z3:0,Z4:0,Z5:0};updateSessionUI();if(timerInterval)clearInterval(timerInterval);timerInterval=setInterval(()=>{const e=Math.floor((Date.now()-sessionStartTime)/1000);document.getElementById('sessionTime').textContent=Math.floor(e/60).toString().padStart(2,'0')+':'+(e%60).toString().padStart(2,'0')},1000)}
 function stopSession(){if(ws&&ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type:'stop_session'}))}
-function sessionStopped(sessions){sessionActive=false;updateSessionUI();if(timerInterval){clearInterval(timerInterval);timerInterval=null}document.getElementById('sessionTime').textContent='00:00';if(sessions){allSessions=sessions;renderHistory(sessions);computeTrends(sessions)}}
+function sessionStopped(msg){
+  sessionActive=false;updateSessionUI();
+  if(timerInterval){clearInterval(timerInterval);timerInterval=null}
+  document.getElementById('sessionTime').textContent='00:00';
+  if(msg.sessions){allSessions=msg.sessions;renderHistory(msg.sessions);computeTrends(msg.sessions)}
+  if(msg.summary)showSummary(msg.summary);
+}
+
+function showSummary(s){
+  const ZONE_COLORS={Z1:'#22c55e',Z2:'#84cc16',Z3:'#eab308',Z4:'#f97316',Z5:'#ef4444'};
+  const ZONE_NAMES={Z1:'Recovery',Z2:'Aerobic',Z3:'Tempo',Z4:'Threshold',Z5:'Max'};
+  const g=s.grade||{letter:'--',label:'--',score:0,color:'var(--accent)'};
+
+  document.getElementById('summaryGradeLetter').textContent=g.letter;
+  document.getElementById('summaryGradeLetter').style.color=g.color;
+  document.getElementById('summaryGradeLabel').textContent=g.label;
+  document.getElementById('summaryGradeLabel').style.color=g.color;
+  const circ=2*Math.PI*42;
+  const fill=document.getElementById('summaryGradeFill');
+  fill.style.strokeDashoffset=circ-(g.score/100)*circ;
+  fill.setAttribute('stroke',g.color);
+  document.getElementById('summaryHeader').style.setProperty('--grade-color',g.color);
+  const hdr=document.getElementById('summaryHeader');
+  hdr.querySelector('::before')||null;
+
+  const dur=s.duration_mins||0;
+  const durMin=Math.floor(dur);
+  const durSec=Math.round((dur-durMin)*60);
+  document.getElementById('summaryDate').textContent=new Date().toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'})+' at '+new Date().toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'});
+
+  const statsEl=document.getElementById('summaryStats');
+  statsEl.innerHTML=`
+    <div class="summary-stat highlight"><div class="val">${s.strain_score||0}</div><div class="lbl">Strain (${s.strain_label||'--'})</div></div>
+    <div class="summary-stat"><div class="val">${durMin}:${String(durSec).padStart(2,'0')}</div><div class="lbl">Duration</div></div>
+    <div class="summary-stat"><div class="val">${s.avg_hr||'--'}</div><div class="lbl">Avg HR</div></div>
+    <div class="summary-stat"><div class="val">${s.max_hr||'--'}</div><div class="lbl">Max HR</div></div>
+    <div class="summary-stat"><div class="val">${s.min_hr||'--'}</div><div class="lbl">Min HR</div></div>
+    <div class="summary-stat"><div class="val">${s.calories||'--'}</div><div class="lbl">Calories</div></div>
+    <div class="summary-stat"><div class="val">${s.training_load||0}</div><div class="lbl">TRIMP</div></div>
+    <div class="summary-stat"><div class="val">${s.training_effect||'--'}</div><div class="lbl">Training Effect</div></div>
+  `;
+
+  const zb=s.zone_breakdown||{};
+  const zones=['Z1','Z2','Z3','Z4','Z5'];
+  const totalPct=zones.reduce((a,z)=>a+(zb[z]||{}).percent||0,0)||1;
+  document.getElementById('summaryZones').innerHTML=zones.map(z=>{
+    const d=zb[z]||{percent:0,minutes:0};
+    const pct=Math.round(d.percent||0);
+    return`<div class="summary-zone-row"><div class="summary-zone-label" style="color:${ZONE_COLORS[z]}">${z}</div><div class="summary-zone-track"><div class="summary-zone-fill" data-pct="${pct}%" style="width:${pct}%;background:${ZONE_COLORS[z]}"></div></div><div class="summary-zone-time">${d.minutes||0}m</div></div>`;
+  }).join('');
+
+  const hrv=s.hrv||{};
+  document.getElementById('summaryHRV').innerHTML=`
+    <div class="summary-stat"><div class="val">${hrv.rmssd||'--'}</div><div class="lbl">RMSSD</div></div>
+    <div class="summary-stat"><div class="val">${hrv.sdnn||'--'}</div><div class="lbl">SDNN</div></div>
+    <div class="summary-stat"><div class="val">${hrv.pnn50||'--'}</div><div class="lbl">pNN50</div></div>
+    <div class="summary-stat"><div class="val">${hrv.lf_hf||'--'}</div><div class="lbl">LF/HF</div></div>
+  `;
+
+  const insEl=document.getElementById('summaryInsights');
+  const insights=s.insights||[];
+  if(insights.length){
+    insEl.innerHTML=insights.map(i=>`<li>${i}</li>`).join('');
+  }else{
+    insEl.innerHTML='<li>Session completed. Review your stats above.</li>';
+  }
+
+  const recEl=document.getElementById('summaryRecovery');
+  const recMin=s.recovery_window_min||0;
+  const recHrs=Math.ceil(recMin/60);
+  const fi=s.fatigue_label||'--';
+  const aut=s.autonomic_balance||'--';
+  recEl.innerHTML=`
+    <div class="hours">${recHrs}h</div>
+    <div class="label">estimated recovery time</div>
+    <div style="margin-top:10px;font-size:11px;color:var(--text-secondary);line-height:1.6">
+      <div>Fatigue: <strong>${fi}</strong> (${s.fatigue_index||0}/100)</div>
+      <div>Autonomic: <strong>${aut}</strong></div>
+      <div>Cardiac Drift: <strong>${s.cardiac_drift||0} BPM/min</strong></div>
+      <div>HR Recovery: <strong>${s.hr_recovery_60s||0} BPM drop/60s</strong></div>
+    </div>
+  `;
+
+  document.getElementById('summaryOverlay').classList.remove('hidden');
+}
+
+function closeSummary(){document.getElementById('summaryOverlay').classList.add('hidden')}
 
 async function connectWebBluetooth(){if(!navigator.bluetooth){alert('Web Bluetooth not supported on iOS.');return}try{const d=await navigator.bluetooth.requestDevice({filters:[{services:['heart_rate']}],optionalServices:['battery_service']});const s=await d.gatt.connect();const sv=await s.getPrimaryService('heart_rate');const ch=await sv.getCharacteristic('heart_rate_measurement');await ch.startNotifications();ch.addEventListener('characteristicvaluechanged',e=>{const v=e.target.value;const f=v.getUint8(0);const h16=f&0x1;let hr;if(h16)hr=v.getUint16(1,true);else hr=v.getUint8(1);const rp=(f>>4)&0x1;const rr=[];if(rp){let o=h16?3:2;while(o+1<v.byteLength){rr.push(Math.round(v.getUint16(o,true)*1000/1024));o+=2}}if(ws&&ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type:'web_bluetooth_hr',hr,rr_intervals:rr}))});document.getElementById('btnWebBT').textContent='Web Bluetooth Connected';document.getElementById('btnWebBT').style.background='var(--z2)';d.addEventListener('gattserverdisconnected',()=>{document.getElementById('btnWebBT').textContent='Connect via Web Bluetooth';document.getElementById('btnWebBT').style.background=''})}catch(err){console.error(err)}}
 

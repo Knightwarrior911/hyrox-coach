@@ -151,6 +151,8 @@ class HYROXCoachApp:
             self.coach.update(hr, rr_intervals)
             stats = self._build_stats()
             self._broadcast_sync({"type": "hr", "data": {"hr": hr, "rr_intervals": rr_intervals}, "stats": stats})
+        else:
+            self._broadcast_sync({"type": "hr", "data": {"hr": hr, "rr_intervals": rr_intervals}, "stats": None})
 
     def _on_status(self, status):
         state = status.get("state", "")
@@ -257,7 +259,13 @@ class HYROXCoachApp:
             elif t == "web_bluetooth_hr":
                 hr = data.get("hr")
                 rr = data.get("rr_intervals", [])
-                if hr and app_ref.session_active: coach.update(hr, rr)
+                if hr:
+                    if app_ref.session_active:
+                        coach.update(hr, rr)
+                        stats = app_ref._build_stats()
+                        await app_ref.broadcast({"type": "hr", "data": {"hr": hr, "rr_intervals": rr}, "stats": stats})
+                    else:
+                        await app_ref.broadcast({"type": "hr", "data": {"hr": hr, "rr_intervals": rr}, "stats": None})
             elif t == "start_session":
                 if "sport" in data: coach.set_sport(data["sport"])
                 coach.reset()
@@ -265,11 +273,17 @@ class HYROXCoachApp:
                 app_ref.session_start_time = time.time()
                 await app_ref.broadcast({"type": "session_started"})
             elif t == "stop_session":
+                summary = None
                 if app_ref.session_active and app_ref.session_start_time:
+                    summary = coach.generate_session_summary()
                     save_session(coach, app_ref.session_start_time)
                 app_ref.session_active = False
                 app_ref.session_start_time = None
-                await app_ref.broadcast({"type": "session_stopped", "sessions": get_session_history(20)})
+                await app_ref.broadcast({
+                    "type": "session_stopped",
+                    "sessions": get_session_history(20),
+                    "summary": summary,
+                })
 
         async def health(request):
             return web.json_response({"status": "ok", "ble_connected": app_ref.ble_connected, "session_active": app_ref.session_active, "sport": coach.sport.value, "ws_clients": len(app_ref.ws_clients), "hr_samples": len(coach.hr_history)})
