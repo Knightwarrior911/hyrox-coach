@@ -919,8 +919,6 @@ class LiveCoach:
         """Generate a comprehensive post-session summary with insights."""
         elapsed = self._last_ts - self.session_start
         hrs = [h for _, h in self.hr_history]
-        if not hrs:
-            return {"error": "No data collected"}
 
         duration_mins = elapsed / 60.0
         total_zone_time = sum(self.zone_time.values())
