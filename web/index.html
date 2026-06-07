@@ -144,6 +144,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);-webkit-font
       <div class="stats-grid">
         <div class="stat-card full"><div class="label">Max Heart Rate</div><input type="number" id="settingMaxHR" value="190" style="width:100%;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:24px;font-weight:700;text-align:center;margin-top:8px"><div class="sub" style="margin-top:8px">Used for zone calculations</div></div>
         <div class="stat-card full"><div class="label">Resting Heart Rate</div><input type="number" id="settingRestingHR" value="60" style="width:100%;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:24px;font-weight:700;text-align:center;margin-top:8px"></div>
+        <div class="stat-card full"><div class="label">Session Type</div><select id="settingSport" style="width:100%;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:16px;margin-top:8px"><option value="hyrox">HYROX</option><option value="football">Football</option><option value="generic">General Cardio</option></select></div>
         <div class="stat-card full"><div class="label">Coach Voice Interval</div><select id="settingCoachInterval" style="width:100%;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:16px;margin-top:8px"><option value="15">Every 15 seconds</option><option value="30" selected>Every 30 seconds</option><option value="60">Every 60 seconds</option><option value="120">Every 2 minutes</option></select></div>
         <div class="stat-card full" style="display:flex;justify-content:space-between;align-items:center"><div><div class="label">Voice Coaching</div><div class="sub">Audio cues through AirPods or Meta glasses</div></div><input type="checkbox" id="settingCoachEnabled" checked style="width:24px;height:24px;accent-color:var(--accent)"></div>
       </div>
@@ -211,7 +212,7 @@ function handleHR(msg){
 function handleCoaching(msg){
   const a=msg.analysis;if(!a)return;
   document.getElementById('coachPhase').textContent=(a.phase||'--').replace(/_/g,' ');
-  document.getElementById('coachMessage').textContent=a.hr_trend?`HR ${a.hr_trend}. Zone ${a.zone}. Target: ${a.target_zone}.`:'Collecting data...';
+  document.getElementById('coachMessage').textContent=a.insight||(a.hr_trend?`HR ${a.hr_trend}. Zone ${a.zone}. Target: ${a.target_zone}.`:'Collecting data...');
   const sug=document.getElementById('coachSuggestions');sug.innerHTML='';
   if(a.suggestions)a.suggestions.forEach(s=>{const li=document.createElement('li');li.textContent=s;sug.appendChild(li)});
   if(a.hyrox_readiness){document.getElementById('hyroxScore').textContent=a.hyrox_readiness.score||'--';document.getElementById('hyroxAssessment').textContent=a.hyrox_readiness.assessment||'--'}
@@ -291,7 +292,7 @@ function playAudio(base64Data){
 function showAudioIndicator(text){const el=document.getElementById('audioIndicator');el.classList.remove('hidden','idle');document.getElementById('audioLabel').textContent=text||'Coach speaking...'}
 function hideAudioIndicator(){const el=document.getElementById('audioIndicator');el.classList.add('idle');setTimeout(()=>el.classList.add('hidden'),2000)}
 
-function startSession(){if(ws&&ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type:'start_session'}))}
+function startSession(){if(ws&&ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type:'start_session',sport:document.getElementById('settingSport').value}))}
 function sessionStarted(){
   sessionActive=true;sessionStartTime=Date.now();hrData=[];rrData=[];zoneData={Z1:0,Z2:0,Z3:0,Z4:0,Z5:0};
   document.getElementById('btnStart').classList.add('hidden');document.getElementById('btnStop').classList.remove('hidden');
@@ -326,7 +327,7 @@ async function connectWebBluetooth(){
 }
 
 function saveSettings(){
-  if(ws&&ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type:'config',max_hr:parseInt(document.getElementById('settingMaxHR').value),resting_hr:parseInt(document.getElementById('settingRestingHR').value),coach_enabled:document.getElementById('settingCoachEnabled').checked,coach_interval:parseInt(document.getElementById('settingCoachInterval').value)}));
+  if(ws&&ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type:'config',sport:document.getElementById('settingSport').value,max_hr:parseInt(document.getElementById('settingMaxHR').value),resting_hr:parseInt(document.getElementById('settingRestingHR').value),coach_enabled:document.getElementById('settingCoachEnabled').checked,coach_interval:parseInt(document.getElementById('settingCoachInterval').value)}));
   coachEnabled=document.getElementById('settingCoachEnabled').checked;
 }
 
