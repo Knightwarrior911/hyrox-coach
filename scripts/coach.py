@@ -432,6 +432,14 @@ class LiveCoach:
 
     def get_coaching_analysis(self) -> dict:
         readiness = self._readiness()
+        elapsed = self._last_ts - self.session_start
+        breath_rate = self._breathing_rate()
+        strain = self._strain_score()
+        fatigue = self._fatigue_index()
+        autonomic = self._autonomic_balance()
+        decoupling = self._cardiac_decoupling()
+        recovery_window = self._recovery_window()
+        zone_timeline = self._zone_timeline()
         return {
             "sport": self.sport.value,
             "phase": self.phase.value,
@@ -439,6 +447,7 @@ class LiveCoach:
             "target_zone": self._target_zone(),
             "hr_trend": self.hr_trend,
             "insight": self.last_insight or self._insight_line(),
+            "elapsed_seconds": round(elapsed),
             "hrv": {
                 "rmssd": round(self.rmssd, 1),
                 "sdnn": round(self.sdnn, 1),
@@ -449,6 +458,15 @@ class LiveCoach:
             "hr_recovery_60s": round(self.hr_recovery_60s),
             "recovery_score": self._recovery_score(),
             "training_load": round(self.training_load, 1),
+            "strain_score": strain,
+            "strain_label": self._strain_label(strain),
+            "breathing_rate": breath_rate,
+            "fatigue_index": fatigue,
+            "fatigue_label": self._fatigue_label(fatigue),
+            "autonomic_balance": autonomic,
+            "cardiac_decoupling": decoupling,
+            "recovery_window_min": recovery_window,
+            "zone_timeline": zone_timeline,
             "readiness": readiness,
             "hyrox_readiness": readiness,
             "football": ({
@@ -460,6 +478,97 @@ class LiveCoach:
             } if self.sport == Sport.FOOTBALL else None),
             "suggestions": self._suggestions(),
         }
+
+    def _breathing_rate(self) -> float:
+        if len(self.rr_history) < 5:
+            return 0.0
+        recent = list(self.rr_history)[-20:]
+        avg_rr = sum(recent) / len(recent)
+        return round(60000.0 / avg_rr * 0.25, 1) if avg_rr > 0 else 0.0
+
+    def _strain_score(self) -> int:
+        elapsed = self._last_ts - self.session_start
+        if elapsed < 10:
+            return 0
+        hrs = np.array([h for _, h in self.hr_history], dtype=float)
+        if len(hrs) < 10:
+            return 0
+        pct = (hrs - self.profile.resting_hr) / self.profile.hrr
+        pct = np.clip(pct, 0, 1)
+        minutes = elapsed / 60.0
+        weighted = float(np.mean(pct ** 1.3 * minutes))
+        raw = min(21.0, weighted * 2.2)
+        return max(0, round(raw))
+
+    def _strain_label(self, score: int) -> str:
+        if score <= 9: return "Light"
+        if score <= 13: return "Moderate"
+        if score <= 17: return "High"
+        return "All Out"
+
+    def _fatigue_index(self) -> float:
+        if len(self.hr_history) < 60:
+            return 0.0
+        hrs = np.array([h for _, h in self.hr_history], dtype=float)
+        first_half = float(hrs[:len(hrs)//2].mean())
+        second_half = float(hrs[len(hrs)//2:].mean())
+        drift = second_half - first_half
+        hr_factor = drift / max(1, self.profile.hrr) * 100
+        hrv_factor = max(0, (30 - self.rmssd) / 30) * 30 if self.rmssd > 0 else 15
+        return round(min(100, max(0, hr_factor * 50 + hrv_factor)), 1)
+
+    def _fatigue_label(self, score: float) -> str:
+        if score < 25: return "Fresh"
+        if score < 50: return "Moderate"
+        if score < 75: return "Tired"
+        return "Exhausted"
+
+    def _autonomic_balance(self) -> str:
+        if self.lf_hf <= 0:
+            return "balanced"
+        if self.lf_hf > 2.0:
+            return "sympathetic"
+        if self.lf_hf < 0.5:
+            return "parasympathetic"
+        return "balanced"
+
+    def _cardiac_decoupling(self) -> float:
+        if len(self.hr_history) < 120:
+            return 0.0
+        window = [(t, h) for t, h in self.hr_history if self._last_ts - t <= 600]
+        if len(window) < 60:
+            return 0.0
+        first_half = [h for _, h in window[:len(window)//2]]
+        second_half = [h for _, h in window[len(window)//2:]]
+        if not first_half or not second_half:
+            return 0.0
+        return round(abs(float(np.mean(second_half)) - float(np.mean(first_half))), 1)
+
+    def _recovery_window(self) -> int:
+        elapsed = self._last_ts - self.session_start
+        if elapsed < 60:
+            return 0
+        avg_hr_ratio = (self.avg_hr - self.profile.resting_hr) / self.profile.hrr
+        drift_factor = abs(self.drift_bpm_per_min) * 2
+        base_minutes = elapsed / 60.0 * avg_hr_ratio * 0.5
+        return max(5, round(base_minutes + drift_factor))
+
+    def _zone_timeline(self) -> list:
+        if not self.hr_history:
+            return []
+        timeline = []
+        current_zone = None
+        zone_start = None
+        for ts, hr in self.hr_history:
+            z = self.profile.zone_for(hr)
+            if z != current_zone:
+                if current_zone is not None:
+                    timeline.append({"zone": current_zone, "start": round(zone_start), "end": round(ts)})
+                current_zone = z
+                zone_start = ts
+        if current_zone:
+            timeline.append({"zone": current_zone, "start": round(zone_start), "end": round(self._last_ts)})
+        return timeline[-20:]
 
     def calculate_hrv_metrics(self) -> dict:
         return self.get_coaching_analysis()["hrv"]

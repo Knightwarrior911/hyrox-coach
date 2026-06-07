@@ -200,7 +200,23 @@ class HYROXCoachApp:
 
     def _build_stats(self):
         c = self.coach
-        return {"avg_hr": round(c.avg_hr), "max_hr_session": c.max_hr_session, "hr_zone": c.zone, "hr_trend": c.hr_trend, "zone_distribution": {z: round(t) for z, t in c.zone_time.items()}}
+        return {
+            "avg_hr": round(c.avg_hr), "max_hr_session": c.max_hr_session, "min_hr_session": c.min_hr_session,
+            "hr_zone": c.zone, "hr_trend": c.hr_trend,
+            "zone_distribution": {z: round(t) for z, t in c.zone_time.items()},
+            "cardiac_drift": round(c.drift_bpm_per_min, 1),
+            "hr_recovery_60s": round(c.hr_recovery_60s),
+            "training_load": round(c.training_load, 1),
+            "rmssd": round(c.rmssd, 1),
+            "current_hr": c.current_hr,
+            "sprint_count": c.sprint_count,
+            "work_time": round(c.work_time),
+            "rest_time": round(c.rest_time),
+            "breathing_rate": c._breathing_rate(),
+            "strain_score": c._strain_score(),
+            "fatigue_index": c._fatigue_index(),
+            "lf_hf_ratio": round(c.lf_hf, 2),
+        }
 
     async def create_web_app(self):
         app_ref = self
@@ -215,7 +231,7 @@ class HYROXCoachApp:
                     "type": "init", "ble_connected": app_ref.ble_connected,
                     "session_active": app_ref.session_active,
                     "profile": {"max_hr": coach.profile.max_hr, "resting_hr": coach.profile.resting_hr},
-                    "sport": coach.sport.value, "sessions": get_session_history(5),
+                    "sport": coach.sport.value, "sessions": get_session_history(20),
                 }))
                 async for msg in ws:
                     if msg.type == aiohttp.WSMsgType.TEXT:
@@ -237,7 +253,7 @@ class HYROXCoachApp:
                 if "coach_interval" in data: coach.coach_interval_seconds = int(data["coach_interval"])
                 await ws.send_str(json.dumps({"type": "config_ack", "profile": {"max_hr": coach.profile.max_hr, "resting_hr": coach.profile.resting_hr}, "coach_enabled": coach.coach_enabled, "sport": coach.sport.value}))
             elif t == "get_sessions":
-                await ws.send_str(json.dumps({"type": "sessions", "sessions": get_session_history(20)}))
+                await ws.send_str(json.dumps({"type": "sessions", "sessions": get_session_history(50)}))
             elif t == "web_bluetooth_hr":
                 hr = data.get("hr")
                 rr = data.get("rr_intervals", [])
@@ -253,7 +269,7 @@ class HYROXCoachApp:
                     save_session(coach, app_ref.session_start_time)
                 app_ref.session_active = False
                 app_ref.session_start_time = None
-                await app_ref.broadcast({"type": "session_stopped", "sessions": get_session_history(5)})
+                await app_ref.broadcast({"type": "session_stopped", "sessions": get_session_history(20)})
 
         async def health(request):
             return web.json_response({"status": "ok", "ble_connected": app_ref.ble_connected, "session_active": app_ref.session_active, "sport": coach.sport.value, "ws_clients": len(app_ref.ws_clients), "hr_samples": len(coach.hr_history)})
