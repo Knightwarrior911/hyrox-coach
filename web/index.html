@@ -168,27 +168,33 @@ let ws=null,bleConnected=false,sessionActive=false;
 let hrData=[],rrData=[],zoneData={Z1:0,Z2:0,Z3:0,Z4:0,Z5:0};
 let currentHR=0,avgHR=0,maxHR=0,zone="Z1";
 let coachEnabled=true;
-let audioEl=null,audioEnabled=false;
+let coachAudio=null,audioUnlocked=false;
 let sessionStartTime=null,timerInterval=null;
 
-function initAudio(){
-  if(!audioEl){
-    audioEl=new Audio();
-    audioEl.addEventListener('ended',hideAudioIndicator);
-    audioEl.addEventListener('error',(e)=>{console.error('Audio error:',e);hideAudioIndicator()});
+function getAudioEl(){
+  if(!coachAudio){
+    coachAudio=new Audio();
+    coachAudio.setAttribute('playsinline','');
+    coachAudio.preload='auto';
+    coachAudio.onended=()=>hideAudioIndicator();
+    coachAudio.onerror=()=>{console.error('Audio element error');hideAudioIndicator()};
   }
+  return coachAudio;
 }
-function enableAudio(){
-  initAudio();
-  audioEl.src='data:audio/mp3;base64,//uQxAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAACcQCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA//////////////////////////////////////////////////////////////////8AAABQTEFNRTMuMTAwBLkAAAAAAAAAABUgJAUHQQAB9AAAAnGMHkkIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//sQxAADgnABGiAAQBCqgCRMAAgEAH///////////////7+n/9FTuQsQH//////2NG0jWUGlio5gLQTOtIoeR2WX////X4s9Atb/JRVCbBUpeRUq//////////////////9RUi0f2jn/+xDECgPCjAEQAABN4AAANIAAAAQVTEFNRTMuMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVQ==';
-  audioEl.play().then(()=>{audioEnabled=true;console.log('Audio enabled')}).catch(()=>{console.log('Audio enable failed')});
+function unlockAudio(){
+  if(audioUnlocked)return;
+  const a=getAudioEl();
+  a.src='data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQxAADB8AhSmxhIIEVCSiJrDCQBTcu3UrAIwUdkRgQbFAZC1CQEwTJ9mjRvBA4UOLD8nKVOWfh+UlK3z/177OXrfOdKl7pyn3Xf//WreyTEFNRTMuOTkuNVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV';
+  a.volume=0;a.play().then(()=>{a.pause();a.currentTime=0;a.volume=1;audioUnlocked=true}).catch(()=>{});
 }
 function playAudio(base64Data){
   try{
-    if(!audioEl)initAudio();
-    audioEl.src='data:audio/mp3;base64,'+base64Data;
-    audioEl.play().catch(err=>{console.error('Audio play failed:',err);hideAudioIndicator()});
-  }catch(err){console.error('Audio setup error:',err);hideAudioIndicator()}
+    const a=getAudioEl();
+    a.volume=1;
+    a.src='data:audio/mp3;base64,'+base64Data;
+    const p=a.play();
+    if(p&&p.catch)p.catch(err=>{console.error('Audio play error:',err);hideAudioIndicator()});
+  }catch(err){console.error('Audio play error:',err);hideAudioIndicator()}
 }
 function showAudioIndicator(text){const el=document.getElementById('audioIndicator');el.classList.remove('hidden','idle');document.getElementById('audioLabel').textContent=text||'Coach speaking...'}
 function hideAudioIndicator(){const el=document.getElementById('audioIndicator');el.classList.add('idle');setTimeout(()=>el.classList.add('hidden'),2000)}
@@ -242,7 +248,7 @@ function handleTTS(msg){
   if(!coachEnabled)return;
   showAudioIndicator(msg.text);
   if(msg.audio){
-    if(!audioEnabled)enableAudio();
+    if(!audioUnlocked)unlockAudio();
     playAudio(msg.audio);
   }
 }
@@ -311,7 +317,7 @@ function drawZoneBars(){
 }
 
 function startSession(){
-  if(!audioEnabled)enableAudio();
+  unlockAudio();
   if(ws&&ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type:'start_session',sport:document.getElementById('settingSport').value}));
 }
 function sessionStarted(){
@@ -363,7 +369,7 @@ function renderHistory(sessions){
 document.querySelectorAll('.tab').forEach(tab=>{tab.addEventListener('click',()=>{document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));tab.classList.add('active');document.querySelectorAll('.tab-content').forEach(c=>c.style.display='none');document.getElementById('tab-'+tab.dataset.tab).style.display='block'})});
 function reconnect(){if(ws)ws.close();connectWS()}
 connectWS();
-document.addEventListener('click',()=>{if(!audioEnabled)enableAudio()},{once:true});
+document.addEventListener('click',()=>{if(!audioUnlocked)unlockAudio()},{once:true});
 </script>
 </body>
 </html>
